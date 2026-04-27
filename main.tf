@@ -15,6 +15,6 @@ resource "azurerm_storage_account" "storage" {
   account_replication_type = "GRS"
 
   enable_https_traffic_only = true
-  allow_blob_public_access  = false
+  
 
 }
