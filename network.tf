@@ -3,7 +3,7 @@ resource "azurerm_resource_group" "network_rg" {
   location = "UK South"
 
   tags = {
-    environment = "dev"
+    environment = "dev-ai"
     project     = "ai-iac"
   }
 }
@@ -18,7 +18,7 @@ resource "azurerm_virtual_network" "vnet" {
 
 
   tags = {
-    environment = "dev"
+    environment = "dev-ai"
     project     = "ai-iac"
   }
 }
