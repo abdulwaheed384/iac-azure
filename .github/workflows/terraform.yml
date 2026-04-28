@@ -1,9 +1,6 @@
 name: Terraform Validate + AI Review
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
@@ -29,10 +26,7 @@ jobs:
         run: terraform validate
 
       - name: Terraform Lint (basic)
-        run: |
-          echo "Basic lint check..."
-          terraform validate
+        run: terraform validate
 
-      # Placeholder for AI review (next step)
       - name: AI Review Placeholder
         run: echo "AI review will run here"
