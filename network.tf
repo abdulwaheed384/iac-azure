@@ -14,6 +14,9 @@ resource "azurerm_virtual_network" "vnet" {
   location            = azurerm_resource_group.network_rg.location
   resource_group_name = azurerm_resource_group.network_rg.name
 
+    dns_servers = ["8.8.8.8", "8.8.4.4"]
+
+
   tags = {
     environment = "dev"
     project     = "ai-iac"
