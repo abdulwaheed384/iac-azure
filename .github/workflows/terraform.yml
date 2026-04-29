@@ -77,7 +77,39 @@ jobs:
                 messages: [
                   {
                     role: "user",
-                    content: ("You are a cloud security expert reviewing Terraform code. Provide: 1) Risks, 2) Misconfigurations, 3) Recommendations. Highlight HIGH/MEDIUM/LOW severity. Be concise.\n\n" + $content)
+                    content: ("You are a senior cloud security architect reviewing Terraform code.
+
+                      Your task is to produce a structured security review.
+
+                      STRICT OUTPUT FORMAT:
+
+                      🔴 SECURITY RISKS (only real risks, not best practices)
+                      - List HIGH and MEDIUM risks only
+                      - Be specific and actionable
+
+                      🟡 MISCONFIGURATIONS
+                      - Configuration gaps that may lead to issues
+
+                      🔵 BEST PRACTICES
+                      - Improvements, optimizations, hygiene
+
+                      📊 SECURITY SCORE
+                      - Score from 0 to 100 based on risk severity
+
+                      🧾 SUMMARY
+                      - High Risk Issues: X
+                      - Medium Issues: X
+                      - Low Issues: X
+
+                      RULES:
+                      - Do NOT mix categories
+                      - Do NOT repeat items
+                      - Be concise and technical
+                      - Avoid generic advice
+
+                      Now review the following Terraform code:
+
+                      " + $content)
                   }
                 ]
               }')
