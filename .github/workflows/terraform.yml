@@ -1,5 +1,10 @@
 name: Terraform Validate + AI Review
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 on:
   pull_request:
     branches:
@@ -11,14 +16,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout with full history (needed for git diff)
       - name: Checkout code
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
+      # Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      # Terraform validation steps
       - name: Terraform Init (no backend)
         run: terraform init -backend=false
 
@@ -28,7 +36,7 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      # Install jq (needed for parsing API response)
+      # Install jq for JSON parsing
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
@@ -39,10 +47,13 @@ jobs:
         run: |
           echo "Running AI review with Claude..."
 
-          # Get changed files
-          FILES=$(git diff --name-only origin/main)
+          # Ensure latest refs
+          git fetch origin
 
-          # Extract only Terraform files
+          # Get changed files dynamically
+          FILES=$(git diff --name-only origin/${{ github.base_ref }})
+
+          # Collect Terraform content
           CONTENT=""
           for f in $FILES; do
             if [[ $f == *.tf ]]; then
@@ -50,11 +61,16 @@ jobs:
             fi
           done
 
-          # If no Terraform changes, skip
+          # If no Terraform changes
           if [ -z "$CONTENT" ]; then
             echo "No Terraform changes detected."
             echo "No Terraform changes to review." > review.txt
           else
+            echo "Preparing content for AI..."
+
+            # Safely encode content for JSON
+            SAFE_CONTENT=$(printf "%s" "$CONTENT" | jq -Rs .)
+
             RESPONSE=$(curl https://api.anthropic.com/v1/messages \
               -s \
               -H "x-api-key: $ANTHROPIC_API_KEY" \
@@ -66,12 +82,14 @@ jobs:
                 \"messages\": [
                   {
                     \"role\": \"user\",
-                    \"content\": \"You are a cloud security expert reviewing Terraform code. Provide: 1) Risks, 2) Misconfigurations, 3) Recommendations. Highlight HIGH/MEDIUM/LOW severity. Be concise.\n\n$CONTENT\"
+                    \"content\": \"You are a cloud security expert reviewing Terraform code. Provide: 1) Risks, 2) Misconfigurations, 3) Recommendations. Highlight HIGH/MEDIUM/LOW severity. Be concise.\n\n\" + $SAFE_CONTENT
                   }
                 ]
               }")
 
-            COMMENT=$(echo $RESPONSE | jq -r '.content[0].text')
+            echo "Parsing AI response..."
+
+            COMMENT=$(echo "$RESPONSE" | jq -r '.content[0].text // "AI review failed to generate output."')
 
             echo "$COMMENT" > review.txt
           fi
