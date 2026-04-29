@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout full repo history (needed for diff)
+      # Checkout full repo history
       - name: Checkout code
         uses: actions/checkout@v3
         with:
@@ -36,24 +36,23 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      # Install jq (required for JSON handling)
+      # Install jq
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      # AI Review (Claude)
+      # AI Review
       - name: AI Review Terraform Code (Claude)
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           echo "Running AI review with Claude..."
 
-          # Ensure we have latest refs
+          # Fetch latest base branch
           git fetch origin
 
-          # Get changed files dynamically
+          # Get changed files
           FILES=$(git diff --name-only origin/${{ github.base_ref }})
 
-          # Collect Terraform content
           CONTENT=""
           for f in $FILES; do
             if [[ $f == *.tf ]]; then
@@ -61,80 +60,71 @@ jobs:
             fi
           done
 
-          # If no Terraform changes
           if [ -z "$CONTENT" ]; then
             echo "No Terraform changes detected."
             echo "No Terraform changes to review." > review.txt
           else
             echo "Building AI request..."
 
-            # Build JSON safely using jq
             PAYLOAD=$(jq -n \
               --arg content "$CONTENT" \
               '{
                 model: "claude-sonnet-4-6",
-                max_tokens: 1000,
+                max_tokens: 1200,
                 messages: [
                   {
                     role: "user",
                     content: ("You are a senior cloud security architect reviewing Terraform code.
 
-                    Your goal is to produce a FAST, DECISION-READY output.
+Your job is to produce a CLEAN, ORDERED, DECISION-READY output.
 
-                    STRICT FORMAT:
+STRICT RULES (MUST FOLLOW):
+1. Output sections in EXACT ORDER (no reordering)
+2. Do NOT print section headers without content
+3. Each finding must appear in ONLY ONE section
+4. Keep bullets to ONE LINE only
+5. No explanations or paragraphs
 
-                    🚫 VERDICT:
-                    - Output ONLY: ✅ SAFE TO MERGE or 🚫 DO NOT MERGE
-                    - If any critical issue exists → DO NOT MERGE
+OUTPUT FORMAT:
 
-                    📊 SECURITY SCORE:
-                    - Score from 0 to 100
-                    - Include threshold: (Threshold: 70)
+🚫 VERDICT:
+- Either: ✅ SAFE TO MERGE or 🚫 DO NOT MERGE
 
-                    ━━━━━━━━━━━━━━━━━━━
+📊 SECURITY SCORE:
+- Format: XX/100 (Threshold: 70)
 
-                    🚨 BLOCKING ISSUES
-                    - Only TRUE critical issues
-                    - Max 3–5 bullets
-                    - Short and actionable
+━━━━━━━━━━━━━━━━━━━
 
-                    ━━━━━━━━━━━━━━━━━━━
+🚨 BLOCKING ISSUES
+- Only HIGH severity issues (max 5)
 
-                    ⚠️ OTHER RISKS
-                    - Medium risks only
-                    - Max 3–5 bullets
+━━━━━━━━━━━━━━━━━━━
 
-                    ━━━━━━━━━━━━━━━━━━━
+⚠️ OTHER RISKS
+- Medium risks only (max 5)
 
-                    🛠 MISCONFIGURATIONS
-                    - Config/design issues
+━━━━━━━━━━━━━━━━━━━
 
-                    ━━━━━━━━━━━━━━━━━━━
+🛠 MISCONFIGURATIONS
+- Config/design issues
 
-                    💡 BEST PRACTICES
-                    - Optional improvements
+━━━━━━━━━━━━━━━━━━━
 
-                    ━━━━━━━━━━━━━━━━━━━
+💡 BEST PRACTICES
+- Optional improvements
 
-                    🧾 SUMMARY
-                    - Critical: X | Risk: X | Misconfig: X | Best Practice: X
+━━━━━━━━━━━━━━━━━━━
 
-                    RULES:
-                    - Max 1 line per bullet
-                    - No explanations
-                    - No repetition
-                    - Prioritize readability over completeness
-                    - Do NOT leave any section empty
+🧾 SUMMARY
+- Critical: X | Risk: X | Misconfig: X | Best Practice: X
 
-                    Now review the Terraform code:
+Now review the Terraform code:
 
-                    " + $content)
-                    
+" + $content)
                   }
                 ]
               }')
 
-            # Call Claude API
             RESPONSE=$(curl https://api.anthropic.com/v1/messages \
               -s \
               -H "x-api-key: $ANTHROPIC_API_KEY" \
@@ -145,7 +135,6 @@ jobs:
             echo "Raw AI response:"
             echo "$RESPONSE"
 
-            # Extract response
             COMMENT=$(echo "$RESPONSE" | jq -r '.content[0].text // empty')
 
             if [ -z "$COMMENT" ]; then
@@ -168,5 +157,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: "🤖 **AI Terraform Review (Claude)**\n\n" + comment
+              body: "🤖 AI Terraform Review (Claude)\n\n" + comment
             });
