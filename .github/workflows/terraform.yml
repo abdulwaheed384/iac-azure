@@ -1,5 +1,10 @@
 name: Terraform Validate + AI Review
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 on:
   pull_request:
     branches:
@@ -7,26 +12,99 @@ on:
 
 jobs:
   terraform:
+    name: terraform-check
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout with full history (needed for git diff)
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
+      # Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      # Terraform validation steps
       - name: Terraform Init (no backend)
         run: terraform init -backend=false
 
       - name: Terraform Format Check
-        run: terraform fmt -check
+        run: terraform fmt -check -recursive
 
       - name: Terraform Validate
         run: terraform validate
 
-      - name: Terraform Lint (basic)
-        run: terraform validate
+      # Install jq for JSON parsing
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: AI Review Placeholder
-        run: echo "AI review will run here"
+      # AI Review using Claude
+      - name: AI Review Terraform Code (Claude)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          echo "Running AI review with Claude..."
+
+          # Ensure latest refs
+          git fetch origin
+
+          # Get changed files dynamically
+          FILES=$(git diff --name-only origin/${{ github.base_ref }})
+
+          # Collect Terraform content
+          CONTENT=""
+          for f in $FILES; do
+            if [[ $f == *.tf ]]; then
+              CONTENT="$CONTENT\nFile: $f\n$(cat $f)\n"
+            fi
+          done
+
+          # If no Terraform changes
+          if [ -z "$CONTENT" ]; then
+            echo "No Terraform changes detected."
+            echo "No Terraform changes to review." > review.txt
+          else
+            echo "Preparing content for AI..."
+
+            # Safely encode content for JSON
+            SAFE_CONTENT=$(printf "%s" "$CONTENT" | jq -Rs .)
+
+            RESPONSE=$(curl https://api.anthropic.com/v1/messages \
+              -s \
+              -H "x-api-key: $ANTHROPIC_API_KEY" \
+              -H "anthropic-version: 2023-06-01" \
+              -H "content-type: application/json" \
+              -d "{
+                \"model\": \"claude-3-opus-20240229\",
+                \"max_tokens\": 1000,
+                \"messages\": [
+                  {
+                    \"role\": \"user\",
+                    \"content\": \"You are a cloud security expert reviewing Terraform code. Provide: 1) Risks, 2) Misconfigurations, 3) Recommendations. Highlight HIGH/MEDIUM/LOW severity. Be concise.\n\n\" + $SAFE_CONTENT
+                  }
+                ]
+              }")
+
+            echo "Parsing AI response..."
+
+            COMMENT=$(echo "$RESPONSE" | jq -r '.content[0].text // "AI review failed to generate output."')
+
+            echo "$COMMENT" > review.txt
+          fi
+
+      # Post AI comment to PR
+      - name: Post AI Comment to PR
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const comment = fs.readFileSync('review.txt', 'utf8');
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: "🤖 **AI Terraform Review (Claude)**\n\n" + comment
+            });
