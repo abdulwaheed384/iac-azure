@@ -76,51 +76,51 @@ jobs:
                     role: "user",
                     content: ("You are a senior cloud security architect reviewing Terraform code.
 
-Your job is to produce a CLEAN, ORDERED, DECISION-READY output.
+                    Your job is to produce a CLEAN, ORDERED, DECISION-READY output.
 
-STRICT RULES (MUST FOLLOW):
-1. Output sections in EXACT ORDER (no reordering)
-2. Do NOT print section headers without content
-3. Each finding must appear in ONLY ONE section
-4. Keep bullets to ONE LINE only
-5. No explanations or paragraphs
+                    STRICT RULES (MUST FOLLOW):
+                    1. Output sections in EXACT ORDER (no reordering)
+                    2. Do NOT print section headers without content
+                    3. Each finding must appear in ONLY ONE section
+                    4. Keep bullets to ONE LINE only
+                    5. No explanations or paragraphs
 
-OUTPUT FORMAT:
+                    OUTPUT FORMAT:
 
-🚫 VERDICT:
-- Either: ✅ SAFE TO MERGE or 🚫 DO NOT MERGE
+                    🚫 VERDICT:
+                    - Either: ✅ SAFE TO MERGE or 🚫 DO NOT MERGE
 
-📊 SECURITY SCORE:
-- Format: XX/100 (Threshold: 70)
+                    📊 SECURITY SCORE:
+                    - Format: XX/100 (Threshold: 70)
 
-━━━━━━━━━━━━━━━━━━━
+                    ━━━━━━━━━━━━━━━━━━━
 
-🚨 BLOCKING ISSUES
-- Only HIGH severity issues (max 5)
+                    🚨 BLOCKING ISSUES
+                    - Only HIGH severity issues (max 5)
 
-━━━━━━━━━━━━━━━━━━━
+                    ━━━━━━━━━━━━━━━━━━━
 
-⚠️ OTHER RISKS
-- Medium risks only (max 5)
+                    ⚠️ OTHER RISKS
+                    - Medium risks only (max 5)
 
-━━━━━━━━━━━━━━━━━━━
+                    ━━━━━━━━━━━━━━━━━━━
 
-🛠 MISCONFIGURATIONS
-- Config/design issues
+                    🛠 MISCONFIGURATIONS
+                    - Config/design issues
 
-━━━━━━━━━━━━━━━━━━━
+                    ━━━━━━━━━━━━━━━━━━━
 
-💡 BEST PRACTICES
-- Optional improvements
+                    💡 BEST PRACTICES
+                    - Optional improvements
 
-━━━━━━━━━━━━━━━━━━━
+                    ━━━━━━━━━━━━━━━━━━━
 
-🧾 SUMMARY
-- Critical: X | Risk: X | Misconfig: X | Best Practice: X
+                    🧾 SUMMARY
+                    - Critical: X | Risk: X | Misconfig: X | Best Practice: X
 
-Now review the Terraform code:
+                    Now review the Terraform code:
 
-" + $content)
+                    " + $content)
                   }
                 ]
               }')
