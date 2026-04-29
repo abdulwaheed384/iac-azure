@@ -72,7 +72,7 @@ jobs:
             PAYLOAD=$(jq -n \
               --arg content "$CONTENT" \
               '{
-                model: "claude-3-opus-20240229",
+                model: "claude-3-5-sonnet-latest",
                 max_tokens: 1000,
                 messages: [
                   {
