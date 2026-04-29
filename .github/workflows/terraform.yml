@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout with full history (needed for git diff)
+      # Checkout full repo history (needed for diff)
       - name: Checkout code
         uses: actions/checkout@v3
         with:
@@ -26,7 +26,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      # Terraform validation steps
+      # Terraform validation
       - name: Terraform Init (no backend)
         run: terraform init -backend=false
 
@@ -36,18 +36,18 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      # Install jq for JSON parsing
+      # Install jq (required for JSON handling)
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      # AI Review using Claude
+      # AI Review (Claude)
       - name: AI Review Terraform Code (Claude)
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           echo "Running AI review with Claude..."
 
-          # Ensure latest refs
+          # Ensure we have latest refs
           git fetch origin
 
           # Get changed files dynamically
@@ -66,32 +66,42 @@ jobs:
             echo "No Terraform changes detected."
             echo "No Terraform changes to review." > review.txt
           else
-            echo "Preparing content for AI..."
+            echo "Building AI request..."
 
-            # Safely encode content for JSON
-            SAFE_CONTENT=$(printf "%s" "$CONTENT" | jq -Rs .)
+            # Build JSON safely using jq
+            PAYLOAD=$(jq -n \
+              --arg content "$CONTENT" \
+              '{
+                model: "claude-sonnet-4-6",
+                max_tokens: 1000,
+                messages: [
+                  {
+                    role: "user",
+                    content: ("You are a cloud security expert reviewing Terraform code. Provide: 1) Risks, 2) Misconfigurations, 3) Recommendations. Highlight HIGH/MEDIUM/LOW severity. Be concise.\n\n" + $content)
+                  }
+                ]
+              }')
 
+            # Call Claude API
             RESPONSE=$(curl https://api.anthropic.com/v1/messages \
               -s \
               -H "x-api-key: $ANTHROPIC_API_KEY" \
               -H "anthropic-version: 2023-06-01" \
               -H "content-type: application/json" \
-              -d "{
-                \"model\": \"claude-3-opus-20240229\",
-                \"max_tokens\": 1000,
-                \"messages\": [
-                  {
-                    \"role\": \"user\",
-                    \"content\": \"You are a cloud security expert reviewing Terraform code. Provide: 1) Risks, 2) Misconfigurations, 3) Recommendations. Highlight HIGH/MEDIUM/LOW severity. Be concise.\n\n\" + $SAFE_CONTENT
-                  }
-                ]
-              }")
+              -d "$PAYLOAD")
 
-            echo "Parsing AI response..."
+            echo "Raw AI response:"
+            echo "$RESPONSE"
 
-            COMMENT=$(echo "$RESPONSE" | jq -r '.content[0].text // "AI review failed to generate output."')
+            # Extract response
+            COMMENT=$(echo "$RESPONSE" | jq -r '.content[0].text // empty')
 
-            echo "$COMMENT" > review.txt
+            if [ -z "$COMMENT" ]; then
+              echo "AI response parsing failed."
+              echo "AI review failed. Check workflow logs." > review.txt
+            else
+              echo "$COMMENT" > review.txt
+            fi
           fi
 
       # Post AI comment to PR
