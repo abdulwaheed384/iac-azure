@@ -7,6 +7,7 @@ on:
 
 jobs:
   terraform:
+    name: terraform-check
     runs-on: ubuntu-latest
 
     steps:
@@ -20,13 +21,70 @@ jobs:
         run: terraform init -backend=false
 
       - name: Terraform Format Check
-        run: terraform fmt -check
+        run: terraform fmt -check -recursive
 
       - name: Terraform Validate
         run: terraform validate
 
-      - name: Terraform Lint (basic)
-        run: terraform validate
+      # Install jq (needed for parsing API response)
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
-      - name: AI Review Placeholder
-        run: echo "AI review will run here"
+      # AI Review using Claude
+      - name: AI Review Terraform Code (Claude)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          echo "Running AI review with Claude..."
+
+          # Get changed files
+          FILES=$(git diff --name-only origin/main)
+
+          # Extract only Terraform files
+          CONTENT=""
+          for f in $FILES; do
+            if [[ $f == *.tf ]]; then
+              CONTENT="$CONTENT\nFile: $f\n$(cat $f)\n"
+            fi
+          done
+
+          # If no Terraform changes, skip
+          if [ -z "$CONTENT" ]; then
+            echo "No Terraform changes detected."
+            echo "No Terraform changes to review." > review.txt
+          else
+            RESPONSE=$(curl https://api.anthropic.com/v1/messages \
+              -s \
+              -H "x-api-key: $ANTHROPIC_API_KEY" \
+              -H "anthropic-version: 2023-06-01" \
+              -H "content-type: application/json" \
+              -d "{
+                \"model\": \"claude-3-opus-20240229\",
+                \"max_tokens\": 1000,
+                \"messages\": [
+                  {
+                    \"role\": \"user\",
+                    \"content\": \"You are a cloud security expert reviewing Terraform code. Provide: 1) Risks, 2) Misconfigurations, 3) Recommendations. Highlight HIGH/MEDIUM/LOW severity. Be concise.\n\n$CONTENT\"
+                  }
+                ]
+              }")
+
+            COMMENT=$(echo $RESPONSE | jq -r '.content[0].text')
+
+            echo "$COMMENT" > review.txt
+          fi
+
+      # Post AI comment to PR
+      - name: Post AI Comment to PR
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const comment = fs.readFileSync('review.txt', 'utf8');
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: "🤖 **AI Terraform Review (Claude)**\n\n" + comment
+            });
