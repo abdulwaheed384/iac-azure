@@ -79,50 +79,56 @@ jobs:
                     role: "user",
                     content: ("You are a senior cloud security architect reviewing Terraform code.
 
-                      Your job is to produce a DECISION-READY security review.
+                    Your goal is to produce a FAST, DECISION-READY output.
 
-                      STRICT OUTPUT FORMAT:
+                    STRICT FORMAT:
 
-                      🚫 FINAL VERDICT:
-                      - Output ONLY one: ✅ SAFE TO MERGE or ❌ DO NOT MERGE
-                      - If any HIGH risk exists → DO NOT MERGE
+                    🚫 VERDICT:
+                    - Output ONLY: ✅ SAFE TO MERGE or 🚫 DO NOT MERGE
+                    - If any critical issue exists → DO NOT MERGE
 
-                      📊 SECURITY SCORE:
-                      - Score from 0 to 100
+                    📊 SECURITY SCORE:
+                    - Score from 0 to 100
+                    - Include threshold: (Threshold: 70)
 
-                      ━━━━━━━━━━━━━━━━━━━
+                    ━━━━━━━━━━━━━━━━━━━
 
-                      🔴 CRITICAL ISSUES (Must Fix)
-                      - Only HIGH severity issues
-                      - Short, actionable bullets
+                    🚨 BLOCKING ISSUES
+                    - Only TRUE critical issues
+                    - Max 3–5 bullets
+                    - Short and actionable
 
-                      🟠 HIGH / MEDIUM RISKS
-                      - Medium risks only
+                    ━━━━━━━━━━━━━━━━━━━
 
-                      🟡 MISCONFIGURATIONS
-                      - Configuration gaps
+                    ⚠️ OTHER RISKS
+                    - Medium risks only
+                    - Max 3–5 bullets
 
-                      🔵 BEST PRACTICES (Optional)
-                      - Improvements only
+                    ━━━━━━━━━━━━━━━━━━━
 
-                      ━━━━━━━━━━━━━━━━━━━
+                    🛠 MISCONFIGURATIONS
+                    - Config/design issues
 
-                      🧾 QUICK SUMMARY
-                      - Critical: X
-                      - High/Medium: X
-                      - Misconfig: X
-                      - Best Practice: X
+                    ━━━━━━━━━━━━━━━━━━━
 
-                      RULES:
-                      - Be concise (max 1–2 lines per bullet)
-                      - No long explanations
-                      - No repetition
-                      - Prioritize readability
-                      - Output must be clean and structured
+                    💡 BEST PRACTICES
+                    - Optional improvements
 
-                      Now review the Terraform code:
+                    ━━━━━━━━━━━━━━━━━━━
 
-                      " + $content)
+                    🧾 SUMMARY
+                    - Critical: X | Risk: X | Misconfig: X | Best Practice: X
+
+                    RULES:
+                    - Max 1 line per bullet
+                    - No explanations
+                    - No repetition
+                    - Prioritize readability over completeness
+                    - Do NOT leave any section empty
+
+                    Now review the Terraform code:
+
+                    " + $content)
                     
                   }
                 ]
