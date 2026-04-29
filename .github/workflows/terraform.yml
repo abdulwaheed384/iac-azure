@@ -77,7 +77,53 @@ jobs:
                 messages: [
                   {
                     role: "user",
-                    content: ("You are a cloud security expert reviewing Terraform code. Provide: 1) Risks, 2) Misconfigurations, 3) Recommendations. Highlight HIGH/MEDIUM/LOW severity. Be concise.\n\n" + $content)
+                    content: ("You are a senior cloud security architect reviewing Terraform code.
+
+                      Your job is to produce a DECISION-READY security review.
+
+                      STRICT OUTPUT FORMAT:
+
+                      🚫 FINAL VERDICT:
+                      - Output ONLY one: ✅ SAFE TO MERGE or ❌ DO NOT MERGE
+                      - If any HIGH risk exists → DO NOT MERGE
+
+                      📊 SECURITY SCORE:
+                      - Score from 0 to 100
+
+                      ━━━━━━━━━━━━━━━━━━━
+
+                      🔴 CRITICAL ISSUES (Must Fix)
+                      - Only HIGH severity issues
+                      - Short, actionable bullets
+
+                      🟠 HIGH / MEDIUM RISKS
+                      - Medium risks only
+
+                      🟡 MISCONFIGURATIONS
+                      - Configuration gaps
+
+                      🔵 BEST PRACTICES (Optional)
+                      - Improvements only
+
+                      ━━━━━━━━━━━━━━━━━━━
+
+                      🧾 QUICK SUMMARY
+                      - Critical: X
+                      - High/Medium: X
+                      - Misconfig: X
+                      - Best Practice: X
+
+                      RULES:
+                      - Be concise (max 1–2 lines per bullet)
+                      - No long explanations
+                      - No repetition
+                      - Prioritize readability
+                      - Output must be clean and structured
+
+                      Now review the Terraform code:
+
+                      " + $content)
+                    
                   }
                 ]
               }')
