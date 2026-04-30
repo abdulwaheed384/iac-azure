@@ -1,4 +1,3 @@
-id="nsg-tf"
 resource "azurerm_network_security_group" "nsg" {
   name                = "nsg-demo-ai"
   location            = azurerm_resource_group.rg.location
