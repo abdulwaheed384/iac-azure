@@ -12,7 +12,6 @@ def load_file(path):
 
 def get_changed_terraform_code():
     try:
-        # Get changed files vs base branch
         base_ref = os.environ.get("GITHUB_BASE_REF", "main")
         subprocess.run(["git", "fetch", "origin"], check=True)
 
@@ -78,7 +77,19 @@ def call_ai(prompt):
 
 def validate_json(response_text):
     try:
-        return json.loads(response_text)
+        cleaned = response_text.strip()
+
+        # Remove markdown code blocks if present
+        if cleaned.startswith("```"):
+            parts = cleaned.split("```")
+            if len(parts) >= 2:
+                cleaned = parts[1]
+            if cleaned.startswith("json"):
+                cleaned = cleaned[4:]
+            cleaned = cleaned.strip()
+
+        return json.loads(cleaned)
+
     except json.JSONDecodeError:
         print("❌ AI output is not valid JSON")
         print("Raw response:")
