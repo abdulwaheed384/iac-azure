@@ -1,4 +1,3 @@
-id="policy-md"
 # Internal Cloud Security Policy
 
 ## Network Security
