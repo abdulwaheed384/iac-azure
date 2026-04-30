@@ -10,6 +10,11 @@ CRITICAL INSTRUCTIONS (NON-NEGOTIABLE):
 
 You are generating output for an automated security control system. Any deviation from JSON will break the pipeline.
 
+Response Size Constraints:
+- Maximum 5 findings
+- Keep summary under 3 sentences
+- Keep each field concise (2–3 sentences max)
+
 Evaluation Areas:
 - IAM
 - Public exposure

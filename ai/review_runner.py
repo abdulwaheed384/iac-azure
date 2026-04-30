@@ -3,6 +3,7 @@ import os
 import subprocess
 import requests
 import sys
+import time
 
 
 def load_file(path):
@@ -53,7 +54,7 @@ def call_ai(prompt):
 
     payload = {
         "model": "claude-sonnet-4-6",
-        "max_tokens": 1500,
+        "max_tokens": 3000,
         "messages": [
             {
                 "role": "user",
@@ -70,9 +71,28 @@ def call_ai(prompt):
     data = response.json()
 
     try:
-        return data["content"][0]["text"]
-    except Exception:
-        raise Exception(f"Unexpected Claude response format: {data}")
+        text = data["content"][0]["text"]
+
+        # 🔥 Detect truncation
+        if not text.strip().endswith("}"):
+            raise Exception("Truncated response detected")
+
+        return text
+
+    except Exception as e:
+        raise Exception(f"Invalid Claude response: {e}")
+
+
+def call_ai_with_retry(prompt, retries=2):
+    for attempt in range(retries + 1):
+        try:
+            return call_ai(prompt)
+        except Exception as e:
+            print(f"⚠️ AI call failed (attempt {attempt+1}): {e}")
+            if attempt == retries:
+                print("❌ All retries failed")
+                sys.exit(1)
+            time.sleep(2)
 
 
 def validate_json(response_text):
@@ -159,7 +179,7 @@ def main():
     full_prompt = prompt + "\n\nTerraform Code:\n" + tf_code
 
     print("📡 Calling Claude API...")
-    response_text = call_ai(full_prompt)
+    response_text = call_ai_with_retry(full_prompt)
 
     print("🔍 Validating AI response...")
     review = validate_json(response_text)
