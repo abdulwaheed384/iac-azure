@@ -20,6 +20,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
@@ -32,70 +37,24 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Install Python Dependencies
+        run: pip install requests
 
-      - name: AI Review
+      - name: Run AI Review
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          git fetch origin
-          FILES=$(git diff --name-only origin/${{ github.base_ref }})
-
-          CONTENT=""
-
-          for f in $FILES; do
-            # ONLY process terraform files inside terraform folder
-            if [[ $f == terraform/*.tf ]] && [[ -f $f ]]; then
-              echo "Processing $f"
-              CONTENT="$CONTENT\nFile: $f\n$(cat $f)\n"
-            fi
-          done
-
-          # If no Terraform changes, exit safely
-          if [ -z "$CONTENT" ]; then
-            echo "No Terraform changes found."
-            echo "No Terraform changes to review." > review.txt
-            exit 0
-          fi
-
-          PROMPT=$(cat ai/prompt.txt)
-
-          PAYLOAD=$(jq -n \
-            --arg content "$CONTENT" \
-            --arg prompt "$PROMPT" \
-            '{
-              model: "claude-sonnet-4-6",
-              max_tokens: 1200,
-              messages: [
-                {
-                  role: "user",
-                  content: ($prompt + "\n\n" + $content)
-                }
-              ]
-            }')
-
-          RESPONSE=$(curl https://api.anthropic.com/v1/messages \
-            -s \
-            -H "x-api-key: $ANTHROPIC_API_KEY" \
-            -H "anthropic-version: 2023-06-01" \
-            -H "content-type: application/json" \
-            -d "$PAYLOAD")
-
-          COMMENT=$(echo "$RESPONSE" | jq -r '.content[0].text // "AI failed"')
-
-          echo "$COMMENT" > review.txt
+        run: python ai/review_runner.py
 
       - name: Post Comment
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const comment = fs.readFileSync('review.txt', 'utf8');
+            const body = fs.readFileSync('pr_comment.txt', 'utf8');
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: "🤖 AI Terraform Review\n\n" + comment
+              body: body
             });
