@@ -12,146 +12,81 @@ on:
 
 jobs:
   terraform:
-    name: terraform-check
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout full repo history (needed for diff)
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      # Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      # Terraform validation
-      - name: Terraform Init (no backend)
+      - name: Terraform Init
         run: terraform init -backend=false
 
-      - name: Terraform Format Check
+      - name: Terraform Format
         run: terraform fmt -check -recursive
 
       - name: Terraform Validate
         run: terraform validate
 
-      # Install jq (required for JSON handling)
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      # AI Review (Claude)
-      - name: AI Review Terraform Code (Claude)
+      - name: AI Review
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          echo "Running AI review with Claude..."
-
-          # Ensure we have latest refs
           git fetch origin
-
-          # Get changed files dynamically
           FILES=$(git diff --name-only origin/${{ github.base_ref }})
 
-          # Collect Terraform content
           CONTENT=""
+
           for f in $FILES; do
-            if [[ $f == *.tf ]]; then
+            # ONLY process terraform files inside terraform folder
+            if [[ $f == terraform/*.tf ]] && [[ -f $f ]]; then
+              echo "Processing $f"
               CONTENT="$CONTENT\nFile: $f\n$(cat $f)\n"
             fi
           done
 
-          # If no Terraform changes
+          # If no Terraform changes, exit safely
           if [ -z "$CONTENT" ]; then
-            echo "No Terraform changes detected."
+            echo "No Terraform changes found."
             echo "No Terraform changes to review." > review.txt
-          else
-            echo "Building AI request..."
-
-            # Build JSON safely using jq
-            PAYLOAD=$(jq -n \
-              --arg content "$CONTENT" \
-              '{
-                model: "claude-sonnet-4-6",
-                max_tokens: 1000,
-                messages: [
-                  {
-                    role: "user",
-                    content: ("You are a senior cloud security architect reviewing Terraform code.
-
-                      Your job is to produce a DECISION-READY security review.
-
-                      STRICT OUTPUT FORMAT:
-
-                      🚫 FINAL VERDICT:
-                      - Output ONLY one: ✅ SAFE TO MERGE or ❌ DO NOT MERGE
-                      - If any HIGH risk exists → DO NOT MERGE
-
-                      📊 SECURITY SCORE:
-                      - Score from 0 to 100
-
-                      ━━━━━━━━━━━━━━━━━━━
-
-                      🔴 CRITICAL ISSUES (Must Fix)
-                      - Only HIGH severity issues
-                      - Short, actionable bullets
-
-                      🟠 HIGH / MEDIUM RISKS
-                      - Medium risks only
-
-                      🟡 MISCONFIGURATIONS
-                      - Configuration gaps
-
-                      🔵 BEST PRACTICES (Optional)
-                      - Improvements only
-
-                      ━━━━━━━━━━━━━━━━━━━
-
-                      🧾 QUICK SUMMARY
-                      - Critical: X
-                      - High/Medium: X
-                      - Misconfig: X
-                      - Best Practice: X
-
-                      RULES:
-                      - Be concise (max 1–2 lines per bullet)
-                      - No long explanations
-                      - No repetition
-                      - Prioritize readability
-                      - Output must be clean and structured
-
-                      Now review the Terraform code:
-
-                      " + $content)
-                    
-                  }
-                ]
-              }')
-
-            # Call Claude API
-            RESPONSE=$(curl https://api.anthropic.com/v1/messages \
-              -s \
-              -H "x-api-key: $ANTHROPIC_API_KEY" \
-              -H "anthropic-version: 2023-06-01" \
-              -H "content-type: application/json" \
-              -d "$PAYLOAD")
-
-            echo "Raw AI response:"
-            echo "$RESPONSE"
-
-            # Extract response
-            COMMENT=$(echo "$RESPONSE" | jq -r '.content[0].text // empty')
-
-            if [ -z "$COMMENT" ]; then
-              echo "AI response parsing failed."
-              echo "AI review failed. Check workflow logs." > review.txt
-            else
-              echo "$COMMENT" > review.txt
-            fi
+            exit 0
           fi
 
-      # Post AI comment to PR
-      - name: Post AI Comment to PR
+          PROMPT=$(cat ai/prompt.txt)
+
+          PAYLOAD=$(jq -n \
+            --arg content "$CONTENT" \
+            --arg prompt "$PROMPT" \
+            '{
+              model: "claude-sonnet-4-6",
+              max_tokens: 1200,
+              messages: [
+                {
+                  role: "user",
+                  content: ($prompt + "\n\n" + $content)
+                }
+              ]
+            }')
+
+          RESPONSE=$(curl https://api.anthropic.com/v1/messages \
+            -s \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d "$PAYLOAD")
+
+          COMMENT=$(echo "$RESPONSE" | jq -r '.content[0].text // "AI failed"')
+
+          echo "$COMMENT" > review.txt
+
+      - name: Post Comment
         uses: actions/github-script@v6
         with:
           script: |
@@ -162,5 +97,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: "🤖 **AI Terraform Review (Claude)**\n\n" + comment
+              body: "🤖 AI Terraform Review\n\n" + comment
             });
