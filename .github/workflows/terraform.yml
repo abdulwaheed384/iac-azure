@@ -43,11 +43,21 @@ jobs:
           FILES=$(git diff --name-only origin/${{ github.base_ref }})
 
           CONTENT=""
+
           for f in $FILES; do
-            if [[ $f == *.tf ]]; then
+            # ONLY process terraform files inside terraform folder
+            if [[ $f == terraform/*.tf ]] && [[ -f $f ]]; then
+              echo "Processing $f"
               CONTENT="$CONTENT\nFile: $f\n$(cat $f)\n"
             fi
           done
+
+          # If no Terraform changes, exit safely
+          if [ -z "$CONTENT" ]; then
+            echo "No Terraform changes found."
+            echo "No Terraform changes to review." > review.txt
+            exit 0
+          fi
 
           PROMPT=$(cat ai/prompt.txt)
 
