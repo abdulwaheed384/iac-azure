@@ -70,17 +70,12 @@ def call_ai(prompt):
 
     data = response.json()
 
-    try:
-        text = data["content"][0]["text"]
+    text = data["content"][0]["text"]
 
-        if not text.strip().endswith("}"):
-            raise Exception("Truncated response detected")
+    if not text.strip().endswith("}"):
+        raise Exception("Truncated response detected")
 
-        return text
-
-    except Exception as e:
-        raise Exception(f"Invalid Claude response: {e}")
-
+    return text
 
 def call_ai_with_retry(prompt, retries=2):
     for attempt in range(retries + 1):
@@ -110,7 +105,6 @@ def validate_json(response_text):
 
     except json.JSONDecodeError:
         print("❌ AI output is not valid JSON")
-        print("Raw response:")
         print(response_text)
         sys.exit(1)
 
@@ -120,48 +114,38 @@ def save_json(review):
         json.dump(review, f, indent=2)
 
 
-# ✅ UPDATED FUNCTION (THIS IS THE FIX)
 def format_comment(review):
     comment = f"""
 ## 🤖 AI Security Review
 
-**Verdict:** {review.get('verdict', 'UNKNOWN')}
-**Score:** {review.get('score', 'N/A')}/100  
-**Risk Level:** {review.get('risk_level', 'UNKNOWN')}
+**Verdict:** {review.get('verdict')}
+**Score:** {review.get('score')}/100  
+**Risk Level:** {review.get('risk_level')}
 
 ### Summary
-{review.get('summary', '')}
+{review.get('summary')}
 
 ### Findings
 """
 
-    findings = review.get("findings", [])
-    if not findings:
-        comment += "\nNo significant issues detected.\n"
-
-    for fnd in findings:
+    for fnd in review.get("findings", []):
         comment += f"""
-- **{fnd.get('severity', 'UNKNOWN')}** – {fnd.get('title', '')}
-  - {fnd.get('description', '')}
-  - Impact: {fnd.get('impact', '')}
-  - Fix: {fnd.get('recommendation', '')}
+- **{fnd.get('severity')}** – {fnd.get('title')}
+  - {fnd.get('description')}
+  - Impact: {fnd.get('impact')}
+  - Fix: {fnd.get('recommendation')}
 """
 
-    # ✅ CLEAN POLICY SECTION
-    policy_violations = review.get("policy_violations", [])
-    if policy_violations:
+    if review.get("policy_violations"):
         comment += "\n### 🚨 Policy Violations\n"
-        for p in policy_violations:
+        for p in review["policy_violations"]:
             comment += f"- **{p.get('policy_id')}** – {p.get('policy_name')} ({p.get('severity')})\n"
 
-    # ✅ POSITIVES
-    positives = review.get("positives", [])
-    if positives:
+    if review.get("positives"):
         comment += "\n### Positives\n"
-        for p in positives:
+        for p in review["positives"]:
             comment += f"- {p}\n"
 
-    # ✅ FINAL RECOMMENDATION LAST
     comment += "\n### Recommendation\n" + review.get("final_recommendation", "")
 
     return comment
@@ -170,6 +154,25 @@ def format_comment(review):
 def save_comment(comment):
     with open("pr_comment.txt", "w") as f:
         f.write(comment)
+
+
+# 🔥 NEW: ENFORCEMENT LOGIC
+def enforce_policy(review):
+    verdict = review.get("verdict")
+    score = review.get("score", 100)
+
+    # Rule 1: Verdict enforcement
+    if verdict == "DO_NOT_MERGE":
+        print("🚫 Blocking PR: Verdict is DO_NOT_MERGE")
+        sys.exit(1)
+
+    # Rule 2: Critical policy violation
+    for p in review.get("policy_violations", []):
+        if p.get("severity") == "CRITICAL":
+            print(f"🚫 Blocking PR: CRITICAL policy violation {p.get('policy_id')}")
+            sys.exit(1)
+
+    print("✅ No blocking issues found")
 
 
 def main():
@@ -183,26 +186,23 @@ def main():
     tf_code = get_changed_terraform_code()
 
     if not tf_code:
-        print("No Terraform changes detected.")
         save_comment("No Terraform changes to review.")
         return
 
     full_prompt = prompt + "\n\nTerraform Code:\n" + tf_code
 
-    print("📡 Calling Claude API...")
     response_text = call_ai_with_retry(full_prompt)
-
-    print("🔍 Validating AI response...")
     review = validate_json(response_text)
 
-    print("💾 Saving AI output...")
     save_json(review)
 
-    print("📝 Formatting PR comment...")
     comment = format_comment(review)
     save_comment(comment)
 
-    print("✅ AI Review completed successfully.")
+    # 🔥 ENFORCEMENT EXECUTION
+    enforce_policy(review)
+
+    print("✅ AI Review completed")
 
 
 if __name__ == "__main__":
