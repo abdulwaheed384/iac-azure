@@ -10,6 +10,12 @@ CRITICAL INSTRUCTIONS (NON-NEGOTIABLE):
 
 You are generating output for an automated security control system. Any deviation from JSON will break the pipeline.
 
+Policy Evaluation Instructions:
+- Evaluate findings against the provided security policies
+- Map each relevant finding to a policy ID
+- Only include policy violations if clearly applicable
+- Do NOT invent policy IDs that are not in the provided policy list
+
 Response Size Constraints:
 - Maximum 5 findings
 - Keep summary under 3 sentences
@@ -51,6 +57,13 @@ Return JSON in this EXACT structure (no changes, no extra fields):
       "description": "",
       "impact": "",
       "recommendation": ""
+    }
+  ],
+  "policy_violations": [
+    {
+      "policy_id": "",
+      "policy_name": "",
+      "severity": "LOW | MEDIUM | HIGH | CRITICAL"
     }
   ],
   "positives": [],

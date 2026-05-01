@@ -73,7 +73,7 @@ def call_ai(prompt):
     try:
         text = data["content"][0]["text"]
 
-        # 🔥 Detect truncation
+        # Detect truncation
         if not text.strip().endswith("}"):
             raise Exception("Truncated response detected")
 
@@ -99,7 +99,7 @@ def validate_json(response_text):
     try:
         cleaned = response_text.strip()
 
-        # Remove markdown code blocks if present
+        # Remove markdown blocks
         if cleaned.startswith("```"):
             parts = cleaned.split("```")
             if len(parts) >= 2:
@@ -148,6 +148,14 @@ def format_comment(review):
   - Fix: {fnd.get('recommendation', '')}
 """
 
+    # ✅ FIXED: Policy violations inside function
+    policy_violations = review.get("policy_violations", [])
+
+    if policy_violations:
+        comment += "\n### 🚨 Policy Violations\n"
+        for p in policy_violations:
+            comment += f"- **{p.get('policy_id')}** – {p.get('policy_name')} ({p.get('severity')})\n"
+
     positives = review.get("positives", [])
     if positives:
         comment += "\n### Positives\n"
@@ -167,7 +175,10 @@ def save_comment(comment):
 def main():
     print("🚀 Starting AI Review...")
 
-    prompt = load_file("ai/prompt.txt")
+    base_prompt = load_file("ai/prompt.txt")
+    policy = load_file("ai/policy.md")
+
+    prompt = base_prompt + "\n\nSecurity Policies:\n" + policy
 
     tf_code = get_changed_terraform_code()
 
