@@ -73,7 +73,6 @@ def call_ai(prompt):
     try:
         text = data["content"][0]["text"]
 
-        # Detect truncation
         if not text.strip().endswith("}"):
             raise Exception("Truncated response detected")
 
@@ -99,7 +98,6 @@ def validate_json(response_text):
     try:
         cleaned = response_text.strip()
 
-        # Remove markdown blocks
         if cleaned.startswith("```"):
             parts = cleaned.split("```")
             if len(parts) >= 2:
@@ -122,6 +120,7 @@ def save_json(review):
         json.dump(review, f, indent=2)
 
 
+# ✅ UPDATED FUNCTION (THIS IS THE FIX)
 def format_comment(review):
     comment = f"""
 ## 🤖 AI Security Review
@@ -148,20 +147,21 @@ def format_comment(review):
   - Fix: {fnd.get('recommendation', '')}
 """
 
-    # ✅ FIXED: Policy violations inside function
+    # ✅ CLEAN POLICY SECTION
     policy_violations = review.get("policy_violations", [])
-
     if policy_violations:
         comment += "\n### 🚨 Policy Violations\n"
         for p in policy_violations:
             comment += f"- **{p.get('policy_id')}** – {p.get('policy_name')} ({p.get('severity')})\n"
 
+    # ✅ POSITIVES
     positives = review.get("positives", [])
     if positives:
         comment += "\n### Positives\n"
         for p in positives:
             comment += f"- {p}\n"
 
+    # ✅ FINAL RECOMMENDATION LAST
     comment += "\n### Recommendation\n" + review.get("final_recommendation", "")
 
     return comment
