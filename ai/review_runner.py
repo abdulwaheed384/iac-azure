@@ -128,11 +128,7 @@ def format_comment(review):
 ### Findings
 """
 
-    findings = review.get("findings", [])
-    if not findings:
-        comment += "\nNo significant issues detected.\n"
-
-    for fnd in findings:
+    for fnd in review.get("findings", []):
         comment += f"""
 - **{fnd.get('severity')}** – {fnd.get('title')}
   - {fnd.get('description')}
@@ -140,17 +136,33 @@ def format_comment(review):
   - Fix: {fnd.get('recommendation')}
 """
 
-    policy_violations = review.get("policy_violations", [])
-    if policy_violations:
+    if review.get("policy_violations"):
         comment += "\n### 🚨 Policy Violations\n"
-        for p in policy_violations:
+        for p in review["policy_violations"]:
             comment += f"- **{p.get('policy_id')}** – {p.get('policy_name')} ({p.get('severity')})\n"
 
-    positives = review.get("positives", [])
-    if positives:
+    if review.get("positives"):
         comment += "\n### Positives\n"
-        for p in positives:
+        for p in review["positives"]:
             comment += f"- {p}\n"
+
+    # 🔥 SOFT ENFORCEMENT WARNING
+    should_block = False
+
+    if review.get("verdict") == "DO_NOT_MERGE":
+        should_block = True
+
+    for p in review.get("policy_violations", []):
+        if p.get("severity") == "CRITICAL":
+            should_block = True
+
+    if should_block:
+        comment += """
+### ⚠️ Soft Enforcement Warning
+
+This PR would have been **BLOCKED** in enforcement mode:
+- Verdict: DO_NOT_MERGE or critical policy violations detected
+"""
 
     comment += "\n### Recommendation\n" + review.get("final_recommendation", "")
 
@@ -187,17 +199,10 @@ def main():
     save_comment(comment)
 
     print("📝 Comment generated successfully")
+    print("⚠️ Soft enforcement mode active (no blocking)")
 
-    # ✅ NO BLOCKING — advisory mode only
-    if review.get("verdict") == "DO_NOT_MERGE":
-        print("⚠️ Advisory: AI suggests DO_NOT_MERGE")
-
-    for p in review.get("policy_violations", []):
-        if p.get("severity") == "CRITICAL":
-            print(f"⚠️ Advisory: CRITICAL policy violation {p.get('policy_id')}")
-
-    print("✅ AI Review completed (non-blocking mode)")
-
+    print("✅ AI Review completed")
+    
 
 if __name__ == "__main__":
     main()
