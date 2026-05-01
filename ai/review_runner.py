@@ -69,13 +69,13 @@ def call_ai(prompt):
         raise Exception(f"Claude API failed: {response.text}")
 
     data = response.json()
-
     text = data["content"][0]["text"]
 
     if not text.strip().endswith("}"):
         raise Exception("Truncated response detected")
 
     return text
+
 
 def call_ai_with_retry(prompt, retries=2):
     for attempt in range(retries + 1):
@@ -128,7 +128,11 @@ def format_comment(review):
 ### Findings
 """
 
-    for fnd in review.get("findings", []):
+    findings = review.get("findings", [])
+    if not findings:
+        comment += "\nNo significant issues detected.\n"
+
+    for fnd in findings:
         comment += f"""
 - **{fnd.get('severity')}** – {fnd.get('title')}
   - {fnd.get('description')}
@@ -136,14 +140,16 @@ def format_comment(review):
   - Fix: {fnd.get('recommendation')}
 """
 
-    if review.get("policy_violations"):
+    policy_violations = review.get("policy_violations", [])
+    if policy_violations:
         comment += "\n### 🚨 Policy Violations\n"
-        for p in review["policy_violations"]:
+        for p in policy_violations:
             comment += f"- **{p.get('policy_id')}** – {p.get('policy_name')} ({p.get('severity')})\n"
 
-    if review.get("positives"):
+    positives = review.get("positives", [])
+    if positives:
         comment += "\n### Positives\n"
-        for p in review["positives"]:
+        for p in positives:
             comment += f"- {p}\n"
 
     comment += "\n### Recommendation\n" + review.get("final_recommendation", "")
@@ -154,25 +160,6 @@ def format_comment(review):
 def save_comment(comment):
     with open("pr_comment.txt", "w") as f:
         f.write(comment)
-
-
-# 🔥 NEW: ENFORCEMENT LOGIC
-def enforce_policy(review):
-    verdict = review.get("verdict")
-    score = review.get("score", 100)
-
-    # Rule 1: Verdict enforcement
-    if verdict == "DO_NOT_MERGE":
-        print("🚫 Blocking PR: Verdict is DO_NOT_MERGE")
-        sys.exit(1)
-
-    # Rule 2: Critical policy violation
-    for p in review.get("policy_violations", []):
-        if p.get("severity") == "CRITICAL":
-            print(f"🚫 Blocking PR: CRITICAL policy violation {p.get('policy_id')}")
-            sys.exit(1)
-
-    print("✅ No blocking issues found")
 
 
 def main():
@@ -199,10 +186,25 @@ def main():
     comment = format_comment(review)
     save_comment(comment)
 
-    # 🔥 ENFORCEMENT EXECUTION
-    enforce_policy(review)
+    print("📝 Comment generated successfully")
 
-    print("✅ AI Review completed")
+    # 🔥 ENFORCEMENT (AFTER COMMENT GENERATION)
+    should_fail = False
+
+    if review.get("verdict") == "DO_NOT_MERGE":
+        print("🚫 Blocking PR: Verdict is DO_NOT_MERGE")
+        should_fail = True
+
+    for p in review.get("policy_violations", []):
+        if p.get("severity") == "CRITICAL":
+            print(f"🚫 Blocking PR: CRITICAL policy violation {p.get('policy_id')}")
+            should_fail = True
+
+    if should_fail:
+        print("❌ Failing pipeline AFTER posting comment")
+        sys.exit(1)
+
+    print("✅ AI Review completed successfully")
 
 
 if __name__ == "__main__":
