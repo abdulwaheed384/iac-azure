@@ -16,6 +16,23 @@ Policy Evaluation Instructions:
 - Only include policy violations if clearly applicable
 - Do NOT invent policy IDs that are not in the provided policy list
 
+STRICT OUTPUT RULES (MANDATORY):
+- Findings must contain ONLY technical issues
+- Findings must NOT contain policy IDs
+- Findings must NOT contain policy explanations
+- Policy violations must ONLY appear in "policy_violations"
+- DO NOT repeat the same issue in multiple sections
+- DO NOT include explanations in policy_violations (short mapping only)
+
+STRICT SECTION ORDER (MANDATORY):
+1. summary
+2. findings
+3. policy_violations
+4. positives
+5. final_recommendation
+
+If you violate ordering or mix sections, the response is invalid.
+
 Response Size Constraints:
 - Maximum 5 findings
 - Keep summary under 3 sentences
