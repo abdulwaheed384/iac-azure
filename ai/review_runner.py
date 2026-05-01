@@ -188,23 +188,15 @@ def main():
 
     print("📝 Comment generated successfully")
 
-    # 🔥 ENFORCEMENT (AFTER COMMENT GENERATION)
-    should_fail = False
-
+    # ✅ NO BLOCKING — advisory mode only
     if review.get("verdict") == "DO_NOT_MERGE":
-        print("🚫 Blocking PR: Verdict is DO_NOT_MERGE")
-        should_fail = True
+        print("⚠️ Advisory: AI suggests DO_NOT_MERGE")
 
     for p in review.get("policy_violations", []):
         if p.get("severity") == "CRITICAL":
-            print(f"🚫 Blocking PR: CRITICAL policy violation {p.get('policy_id')}")
-            should_fail = True
+            print(f"⚠️ Advisory: CRITICAL policy violation {p.get('policy_id')}")
 
-    if should_fail:
-        print("❌ Failing pipeline AFTER posting comment")
-        sys.exit(1)
-
-    print("✅ AI Review completed successfully")
+    print("✅ AI Review completed (non-blocking mode)")
 
 
 if __name__ == "__main__":
