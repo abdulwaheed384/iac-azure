@@ -31,12 +31,13 @@ STRICT SECTION ORDER (MANDATORY):
 4. positives
 5. final_recommendation
 
-If you violate ordering or mix sections, the response is invalid.
+If sections are mixed, repeated, or out of order, the response is invalid.
 
-Response Size Constraints:
-- Maximum 5 findings
+Hard Limit Rules:
+- Maximum 3 findings only
 - Keep summary under 3 sentences
-- Keep each field concise (2–3 sentences max)
+- Keep each field concise (max 2 sentences)
+- Keep policy_violations concise (no explanations)
 
 Evaluation Areas:
 - IAM
