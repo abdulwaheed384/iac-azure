@@ -1,14 +1,19 @@
-# Internal Cloud Security Policy
+# Security Policy for Terraform (Azure)
 
-## Network Security
+## NET-001
+All subnets must have a Network Security Group (NSG) associated.
 
-1. SSH (port 22) must NOT be exposed to 0.0.0.0/0
-2. HTTP (port 80) must not be publicly exposed without HTTPS enforcement
-3. NSGs must be associated with all subnets
-4. Public DNS servers are not allowed (use Azure DNS)
-5. Outbound internet access must be restricted
+## NET-002
+Virtual Networks must NOT use public DNS servers. Use Azure DNS or internal DNS only.
 
-## Governance
+## NET-003
+All Virtual Networks must have DDoS Protection Standard enabled for production workloads.
 
-6. All resources must have tags
-7. Resource groups must follow naming standards
+## LOG-001
+All resources must have diagnostic logging enabled and forwarded to Log Analytics.
+
+## TAG-001
+All resources must include mandatory tags: environment, owner, cost-center.
+
+## SEC-001
+No resource should be publicly exposed unless explicitly required and justified.
