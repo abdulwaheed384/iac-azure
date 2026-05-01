@@ -114,13 +114,32 @@ def save_json(review):
         json.dump(review, f, indent=2)
 
 
+# 🔥 NEW: Risk grading logic
+def get_risk_grade(score):
+    if score >= 85:
+        return "A", "✅ Safe"
+    elif score >= 70:
+        return "B", "⚠️ Acceptable with improvements"
+    elif score >= 50:
+        return "C", "⚠️ Needs improvement"
+    else:
+        return "D", "🚨 High risk"
+
+
 def format_comment(review):
+    score = review.get("score", 0)
+    grade, status = get_risk_grade(score)
+
     comment = f"""
 ## 🤖 AI Security Review
 
 **Verdict:** {review.get('verdict')}
-**Score:** {review.get('score')}/100  
+**Score:** {score}/100  
 **Risk Level:** {review.get('risk_level')}
+
+### 📊 Risk Assessment
+- Grade: {grade}
+- Status: {status}
 
 ### Summary
 {review.get('summary')}
@@ -146,22 +165,15 @@ def format_comment(review):
         for p in review["positives"]:
             comment += f"- {p}\n"
 
-    # 🔥 SOFT ENFORCEMENT WARNING
-    should_block = False
-
-    if review.get("verdict") == "DO_NOT_MERGE":
-        should_block = True
-
-    for p in review.get("policy_violations", []):
-        if p.get("severity") == "CRITICAL":
-            should_block = True
-
-    if should_block:
-        comment += """
+    # 🔥 SOFT ENFORCEMENT WITH SCORE
+    if score < 70:
+        comment += f"""
 ### ⚠️ Soft Enforcement Warning
 
-This PR would have been **BLOCKED** in enforcement mode:
-- Verdict: DO_NOT_MERGE or critical policy violations detected
+This PR is considered **HIGH RISK**:
+- Score: {score}/100
+- Grade: {grade}
+- Would be BLOCKED in strict enforcement mode
 """
 
     comment += "\n### Recommendation\n" + review.get("final_recommendation", "")
@@ -199,10 +211,10 @@ def main():
     save_comment(comment)
 
     print("📝 Comment generated successfully")
-    print("⚠️ Soft enforcement mode active (no blocking)")
+    print("📊 Score-based soft enforcement active")
 
     print("✅ AI Review completed")
-    
+
 
 if __name__ == "__main__":
     main()
